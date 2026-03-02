@@ -3,7 +3,7 @@ import requests
 import time
 import re
 from rich.console import Console
-from api_manager import ArchitectXSpinner, search_web_for_context
+from api_manager import ArchitectXSpinner, fetch_web_context
 
 console = Console()
 
