@@ -1,69 +1,81 @@
 import requests
 from bs4 import BeautifulSoup
+import re
 from rich.console import Console
 
 console = Console()
 
-def scrape_website(url):
+# =====================================================================
+# [ ArchitectX Core: Deep Web Cloning Module ]
+# =====================================================================
+def extract_colors(html_content):
+    """HTML এবং ইনলাইন CSS থেকে হেক্স কালার কোডগুলো খুঁজে বের করে"""
+    hex_colors = re.findall(r'#(?:[0-9a-fA-F]{3}){1,2}\b', html_content)
+    # ডুপ্লিকেট বাদ দিয়ে প্রথম ৫টি ইউনিক কালার নেওয়া
+    return list(set(hex_colors))[:5]
+
+def scrape_website(url, ux_spinner):
     """
-    ইউজারের দেওয়া লিংকে গিয়ে ওয়েবসাইটের ডিজাইন, লেআউট এবং কন্টেন্ট স্ক্যান করে।
+    যেকোনো ওয়েবসাইটের একদম গভীরে গিয়ে তার DNA (ডিজাইন স্ট্রাকচার) রিড করে।
     """
-    console.print(f"\n[bold yellow][*] ArchitectX Web Scraper initializing for URL...[/bold yellow]")
-    console.print(f"[cyan]Target: {url}[/cyan]")
+    ux_spinner.update(f"Initiating Deep-Clone Protocol for: {url}", "yellow")
     
     try:
-        # প্রফেশনাল ব্রাউজারের মতো রিকোয়েস্ট পাঠানোর জন্য হেডার
+        # প্রফেশনাল হেডার যাতে সাইট ব্লক না করে
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 ArchitectX/1.0'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ArchitectX-DeepClone/2.0',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
         }
         
-        response = requests.get(url, headers=headers, timeout=15)
+        ux_spinner.update("Bypassing firewalls and downloading DOM structure...", "cyan")
+        response = requests.get(url, headers=headers, timeout=20)
         response.raise_for_status()
         
-        console.print("[yellow][*] Extracting DOM structure and layout patterns...[/yellow]")
-        soup = BeautifulSoup(response.text, 'html.parser')
+        html_content = response.text
+        soup = BeautifulSoup(html_content, 'html.parser')
         
-        # স্ক্রিপ্ট এবং স্টাইল ট্যাগগুলো বাদ দিচ্ছি যাতে শুধু মূল স্ট্রাকচার পাই
-        for script in soup(["script", "style", "noscript"]):
+        ux_spinner.update("Extracting UI/UX patterns and Color Schemes...", "magenta")
+        
+        # কালার স্কিম এক্সট্র্যাক্ট
+        color_palette = extract_colors(html_content)
+        
+        # অপ্রয়োজনীয় ট্যাগ বাদ দেওয়া
+        for script in soup(["script", "style", "noscript", "meta", "svg"]):
             script.extract()
             
-        # ওয়েবসাইটের মূল তথ্যগুলো বের করে আনা
-        title = soup.title.string if soup.title else "Unknown Title"
+        # কোর ডেটা এক্সট্র্যাক্ট
+        title = soup.title.string.strip() if soup.title else "Unknown Title"
         
-        # হেডিং এবং প্যারাগ্রাফ এক্সট্র্যাক্ট করা (ডিজাইনের লেআউট বোঝার জন্য)
-        headings = [h.get_text(strip=True) for h in soup.find_all(['h1', 'h2', 'h3']) if h.get_text(strip=True)]
-        paragraphs = [p.get_text(strip=True) for p in soup.find_all('p') if p.get_text(strip=True)]
+        # ন্যাভিগেশন এবং বাটন স্ট্রাকচার
+        nav_links = [a.get_text(strip=True) for a in soup.find_all('a') if len(a.get_text(strip=True)) > 2][:5]
+        buttons = [b.get_text(strip=True) for b in soup.find_all(['button', 'a']) if 'btn' in b.get('class', []) or 'button' in b.get('class', [])][:5]
         
-        # বাটনের টেক্সট এবং লিংক স্ট্রাকচার (UI/UX বোঝার জন্য)
-        buttons = [b.get_text(strip=True) for b in soup.find_all(['button', 'a']) if b.get_text(strip=True) and len(b.get_text(strip=True)) < 20]
-
-        console.print("[bold green][✔] Website DNA successfully extracted![/bold green]")
+        # লেআউট স্ট্রাকচার
+        headings = [h.get_text(strip=True) for h in soup.find_all(['h1', 'h2']) if h.get_text(strip=True)][:4]
         
-        # AI-এর জন্য একটি কাস্টম প্রম্পট বা ব্লুপ্রিন্ট তৈরি করা
-        extracted_blueprint = f"""
-        I need to clone the design and layout of a website. Here is its extracted data:
-        - Target Website Title: {title}
-        - Main Headings (Use these for structural hierarchy): {', '.join(headings[:5])}
-        - Content Vibe (Use similar placeholder texts): {' '.join(paragraphs[:3])}
-        - Call to Actions (Buttons): {', '.join(buttons[:5])}
+        ux_spinner.stop("Target DNA successfully sequenced!")
         
-        INSTRUCTION: Create a highly responsive, modern website using HTML, CSS, and JS that perfectly mimics the layout, UI/UX, and structure of this extracted data. Make it look professional and ready to deploy.
+        # AI-এর জন্য মাস্টার ব্লুপ্রিন্ট তৈরি
+        blueprint = f"""
+        CLONE TARGET DATA:
+        - Original Title: {title}
+        - Discovered Color Palette: {', '.join(color_palette) if color_palette else 'Use modern tech dark theme'}
+        - Navigation Menu Items: {', '.join(nav_links)}
+        - Core Call-to-Actions (Buttons): {', '.join(buttons)}
+        - Main Structural Headings: {', '.join(headings)}
+        
+        INSTRUCTION: Act as ArchitectX Clone Engine. Rebuild this exact website structure. 
+        Use the discovered color palette. Ensure the UI feels identical but uses clean, modern HTML5/CSS3.
         """
-        return extracted_blueprint
+        return blueprint
 
     except requests.exceptions.MissingSchema:
-        console.print("[bold red][!] Invalid URL format. Please include http:// or https://[/bold red]")
+        ux_spinner.stop("Invalid URL. Provide complete format (e.g., https://example.com)", success=False)
         return None
     except requests.exceptions.RequestException as e:
-        console.print(f"[bold red][!] Scraper Error: Could not access the website. It might be protected or offline.[/bold red]")
+        ux_spinner.stop(f"Target is heavily protected or offline. Error: {e}", success=False)
         return None
     except Exception as e:
-        console.print(f"[bold red][!] Unknown Scraper Error: {e}[/bold red]")
+        ux_spinner.stop(f"Deep-Clone engine failure: {e}", success=False)
         return None
-
-# টেস্ট করার জন্য
-if __name__ == "__main__":
-    test_url = "https://example.com"
-    blueprint = scrape_website(test_url)
-    if blueprint:
-        print("\nGenerated AI Blueprint:", blueprint)
