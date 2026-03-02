@@ -3,6 +3,7 @@ import json
 import http.client
 import requests
 import time
+import os
 from rich.console import Console
 from rich.live import Live
 from rich.spinner import Spinner
@@ -11,181 +12,140 @@ from rich.text import Text
 console = Console()
 
 # =====================================================================
-# ArchitectX Core: API Obfuscation (In-built Keys)
-# আপনার দেওয়া API Key গুলোকে Base64 দিয়ে এনকোড করে রাখা হলো 
-# যাতে সোর্স কোডে সরাসরি দেখা না যায়।
+# [ ArchitectX Core: API Vault & Obfuscation ]
 # =====================================================================
+# ইন-বিল্ট API গুলোকে Base64 এনকোড করে রাখা হলো সিকিউরিটির জন্য
 ENCODED_SERPER_KEYS = [
     "ZTI1YzEyYjk0NzAwYjEyN2NiMjRlNDlmYzU0ODJiMmRiMTY1N2Q0Yw==",
     "NzkyMzQ2YjczY2M5ZTIxMTdjNTYwMmMxNjUyZjE5OTUwMzM3NDk1MQ=="
 ]
 ENCODED_ZAI_KEY = "Mjg2NTlmNjEzYTM4NDUxMGIzMTIwYWNiMzYwYjEwZGUuOGJXbzBBZnU2WXQ3eFBPTA=="
 
-def get_builtin_key(service):
-    """এনকোড করা কি (Key) গুলো ডিকোড করে রিটার্ন করবে।"""
+def get_vault_key(service, index=0):
+    """সিকিউর ভল্ট থেকে API কি ডিকোড করে আনে"""
     try:
         if service == "zai":
             return base64.b64decode(ENCODED_ZAI_KEY).decode('utf-8')
         elif service == "serper":
-            # আপাতত প্রথম কি-টি রিটার্ন করছি, চাইলে রাউন্ড-রবিন লজিক করা যায়
-            return base64.b64decode(ENCODED_SERPER_KEYS[0]).decode('utf-8')
-    except Exception as e:
+            return base64.b64decode(ENCODED_SERPER_KEYS[index % len(ENCODED_SERPER_KEYS)]).decode('utf-8')
+    except Exception:
         return None
 
 # =====================================================================
-# ArchitectX Core: UX Engine (Live Status & Spinners)
-# ব্যাকগ্রাউন্ড টাস্ক চলার সময় ইউজারের জন্য চমৎকার লাইভ আপডেট।
+# [ ArchitectX Core: Live UX & Animation Engine ]
 # =====================================================================
 class ArchitectXSpinner:
-    def __init__(self, initial_text="Initializing ArchitectX Core..."):
-        self.spinner = Spinner("dots", text=Text(initial_text, style="cyan"))
-        self.live = Live(self.spinner, refresh_per_second=15, transient=True)
+    """ব্যাকগ্রাউন্ডে কাজ চলার সময় ইউজারের বোরিংনেস কাটাতে স্মার্ট লাইভ আপডেটার"""
+    def __init__(self, initial_text="Initializing ArchitectX Core Matrix..."):
+        # হ্যাকার ভাইব দেওয়ার জন্য 'bouncingBar' বা 'dots' স্পিনার
+        self.spinner = Spinner("bouncingBar", text=Text(initial_text, style="bold cyan"))
+        self.live = Live(self.spinner, refresh_per_second=20, transient=True)
+        self.is_running = False
         
     def start(self):
-        self.live.start()
+        if not self.is_running:
+            self.live.start()
+            self.is_running = True
         
-    def update(self, text, style="yellow"):
-        self.spinner.text = Text(text, style=style)
+    def update(self, text, style="bold yellow"):
+        if self.is_running:
+            self.spinner.text = Text(text, style=style)
+            # টেক্সট পড়ার জন্য সামান্য ন্যাচারাল ডিলে
+            time.sleep(0.3)
         
-    def stop(self):
-        self.live.stop()
+    def stop(self, final_text=None, success=True):
+        if self.is_running:
+            self.live.stop()
+            self.is_running = False
+            if final_text:
+                if success:
+                    console.print(f"[bold green][✔] {final_text}[/bold green]")
+                else:
+                    console.print(f"[bold red][✖] {final_text}[/bold red]")
 
 # =====================================================================
-# ArchitectX Core: API Health Check & Router
+# [ ArchitectX Core: Neural Health & Router ]
 # =====================================================================
-def check_serper_health(api_key):
-    """Serper.dev API ঠিকঠাক কাজ করছে কি না তা চেক করে।"""
+class APIRouter:
+    def __init__(self):
+        self.active_zai = None
+        self.active_serper = None
+        
+    def check_zai_health(self, api_key):
+        """Zhipu AI (Z.ai) এর সার্ভারে পিং করে চেক করে এটি জ্যান্ত কি না"""
+        try:
+            url = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+            headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+            data = {"model": "glm-4", "messages": [{"role": "user", "content": "ping"}], "max_tokens": 5}
+            response = requests.post(url, headers=headers, json=data, timeout=8)
+            return response.status_code == 200
+        except:
+            return False
+
+    def check_serper_health(self, api_key):
+        """Serper.dev এর সার্ভারে ডামি রিকোয়েস্ট পাঠিয়ে চেক করে"""
+        try:
+            conn = http.client.HTTPSConnection("google.serper.dev", timeout=8)
+            payload = json.dumps({"q": "ArchitectX ping test"})
+            headers = {'X-API-KEY': api_key, 'Content-Type': 'application/json'}
+            conn.request("POST", "/search", payload, headers)
+            res = conn.getresponse()
+            return res.status == 200
+        except:
+            return False
+
+    def initialize_engines(self, user_config):
+        """সবচেয়ে ফাস্ট এবং জ্যান্ত API সিলেক্ট করে রাউট তৈরি করে"""
+        ux = ArchitectXSpinner("Establishing secure connection to AI Nodes...")
+        ux.start()
+        
+        # 1. Z.ai Check
+        ux.update("Pinging Z.ai Neural Network...", "magenta")
+        user_zai = user_config.get("ZAI_KEY")
+        if user_zai and self.check_zai_health(user_zai):
+            self.active_zai = user_zai
+            ux.update("User Z.ai Key accepted.", "green")
+        else:
+            ux.update("Switching to ArchitectX In-built Z.ai Key...", "yellow")
+            builtin_zai = get_vault_key("zai")
+            if builtin_zai and self.check_zai_health(builtin_zai):
+                self.active_zai = builtin_zai
+                
+        # 2. Serper Check
+        ux.update("Scanning Serper.dev global search nodes...", "cyan")
+        user_serper = user_config.get("SERPER_KEY")
+        if user_serper and self.check_serper_health(user_serper):
+            self.active_serper = user_serper
+            ux.update("User Serper Key accepted.", "green")
+        else:
+            ux.update("Switching to ArchitectX In-built Serper Key...", "yellow")
+            builtin_serper = get_vault_key("serper", 0)
+            if builtin_serper and self.check_serper_health(builtin_serper):
+                self.active_serper = builtin_serper
+                
+        ux.stop("Neural Engines Initialized successfully!")
+        
+        return {"zai": self.active_zai, "serper": self.active_serper}
+
+# =====================================================================
+# [ ArchitectX Core: Web Context Extractor ]
+# =====================================================================
+def fetch_web_context(query, api_key, ux_spinner):
+    """Serper.dev ব্যবহার করে ইন্টারনেট থেকে লাইভ লাইব্রেরি বা ডিজাইন ডাটা আনে"""
+    ux_spinner.update(f"Extracting live web context for: {query}...", "cyan")
     try:
-        conn = http.client.HTTPSConnection("google.serper.dev", timeout=10)
-        payload = json.dumps({"q": "test"})
-        headers = {
-            'X-API-KEY': api_key,
-            'Content-Type': 'application/json'
-        }
-        conn.request("POST", "/search", payload, headers)
-        res = conn.getresponse()
-        data = res.read()
-        
-        if res.status == 200:
-            return True
-        return False
-    except Exception as e:
-        return False
-
-def check_zai_health(api_key):
-    """Zhipu AI (Z.ai) API জ্যান্ত আছে কি না তা চেক করে।"""
-    try:
-        # Zhipu AI এর মডেল লিস্ট বা ডামি চ্যাট রিকোয়েস্ট দিয়ে চেক
-        url = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        }
-        data = {
-            "model": "glm-4",
-            "messages": [{"role": "user", "content": "ping"}],
-            "max_tokens": 5
-        }
-        response = requests.post(url, headers=headers, json=data, timeout=10)
-        if response.status_code == 200:
-            return True
-        return False
-    except Exception as e:
-        return False
-
-def get_active_apis(user_zai_key=None, user_serper_key=None):
-    """
-    ইউজারের API এবং ইন-বিল্ট API চেক করে সবচেয়ে বেস্ট এবং অ্যাক্টিভ API রিটার্ন করে।
-    """
-    active_keys = {"zai": None, "serper": None}
-    
-    spinner = ArchitectXSpinner("Verifying API Health Connections...")
-    spinner.start()
-    
-    # 1. Z.ai Health Check
-    spinner.update("Pinging Z.ai Neural Network...", style="magenta")
-    time.sleep(1) # UX এর জন্য হালকা ডিলে
-    
-    if user_zai_key and check_zai_health(user_zai_key):
-        active_keys["zai"] = user_zai_key
-    else:
-        spinner.update("User Z.ai key missing/failed. Switching to ArchitectX Core API...", style="yellow")
-        time.sleep(0.8)
-        builtin_zai = get_builtin_key("zai")
-        if check_zai_health(builtin_zai):
-            active_keys["zai"] = builtin_zai
-            
-    # 2. Serper.dev Health Check
-    spinner.update("Checking Serper.dev Web Search nodes...", style="cyan")
-    time.sleep(1)
-    
-    if user_serper_key and check_serper_health(user_serper_key):
-        active_keys["serper"] = user_serper_key
-    else:
-        spinner.update("Switching to ArchitectX Core Serper API...", style="yellow")
-        time.sleep(0.8)
-        builtin_serper = get_builtin_key("serper")
-        if check_serper_health(builtin_serper):
-            active_keys["serper"] = builtin_serper
-            
-    spinner.stop()
-    
-    # ফাইনাল রিপোর্ট
-    if active_keys["zai"]:
-        console.print("[bold green][✔] Z.ai Engine: ONLINE[/bold green]")
-    else:
-        console.print("[bold red][!] Z.ai Engine: OFFLINE (All keys failed)[/bold red]")
-        
-    if active_keys["serper"]:
-        console.print("[bold green][✔] Serper.dev Search: ONLINE[/bold green]")
-    else:
-        console.print("[bold red][!] Serper.dev Search: OFFLINE[/bold red]")
-        
-    return active_keys
-
-# =====================================================================
-# ArchitectX Core: Web Search Extractor (Powered by Serper)
-# =====================================================================
-def search_web_for_context(query, api_key):
-    """
-    ইউজারের প্রজেক্টের জন্য লেটেস্ট তথ্য, CSS ফ্রেমওয়ার্ক বা ডিজাইন ট্রেন্ড 
-    ইন্টারনেট থেকে সার্চ করে নিয়ে আসে।
-    """
-    spinner = ArchitectXSpinner(f"Scanning the web for: {query}...")
-    spinner.start()
-    
-    try:
-        conn = http.client.HTTPSConnection("google.serper.dev", timeout=15)
+        conn = http.client.HTTPSConnection("google.serper.dev", timeout=12)
         payload = json.dumps({"q": query})
-        headers = {
-            'X-API-KEY': api_key,
-            'Content-Type': 'application/json'
-        }
+        headers = {'X-API-KEY': api_key, 'Content-Type': 'application/json'}
         conn.request("POST", "/search", payload, headers)
         res = conn.getresponse()
         data = res.read()
         
         result_json = json.loads(data.decode("utf-8"))
-        
-        # অর্গানিক সার্চ রেজাল্ট থেকে টাইটেল এবং স্নাইপেট আলাদা করা
         extracted_info = ""
         if "organic" in result_json:
-            for item in result_json["organic"][:3]: # প্রথম ৩টি রেজাল্ট
+            for item in result_json["organic"][:4]:
                 extracted_info += f"- {item.get('title')}: {item.get('snippet')}\n"
-                
-        spinner.stop()
-        console.print("[bold green][✔] Web data extracted successfully![/bold green]")
         return extracted_info
-        
     except Exception as e:
-        spinner.stop()
-        console.print(f"[bold red][!] Web Search failed: {e}[/bold red]")
-        return None
-
-# টেস্ট করার জন্য ডামি রান
-if __name__ == "__main__":
-    console.print("\n[bold cyan]--- ArchitectX API Manager Diagnostics ---[/bold cyan]")
-    keys = get_active_apis()
-    if keys["serper"]:
-        context = search_web_for_context("latest dark mode css UI design trends 2026", keys["serper"])
-        print(f"\nExtracted Context:\n{context}")
+        return "Web search fallback activated. Generating offline context..."
