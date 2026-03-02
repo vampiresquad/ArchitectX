@@ -2,20 +2,19 @@ import os
 import sys
 import json
 from rich.console import Console
-from rich.panel import Panel
 from InquirerPy import inquirer
 from InquirerPy.base.control import Choice
 
-# আমাদের তৈরি করা কাস্টম মডিউলগুলো ইমপোর্ট করছি
 import security
+from api_manager import APIRouter, ArchitectXSpinner
 import ai_engine
-import compiler
 import scraper
+import compiler
 
 console = Console()
+CONFIG_FILE = "architectx_config.json"
 
 def show_banner():
-    """টার্মিনালে প্রফেশনাল হ্যাকার স্টাইলের ArchitectX ব্যানার শো করবে।"""
     banner = """
     █████╗ ██████╗  ██████╗██╗  ██╗██╗████████╗███████╗ ██████╗████████╗██╗  ██╗
    ██╔══██╗██╔══██╗██╔════╝██║  ██║██║╚══██╔══╝██╔════╝██╔════╝╚══██╔══╝╚██╗██╔╝
@@ -25,91 +24,116 @@ def show_banner():
    ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝   ╚═╝   ╚══════╝ ╚═════╝   ╚═╝   ╚═╝  ╚═╝
     """
     console.print(f"[bold cyan]{banner}[/bold cyan]")
-    console.print("[bold green]          Developed by Muhammad Shourov | Founder of Vampire Squad[/bold green]\n")
+    console.print("[bold green]     >> ENFORCED BY MUHAMMAD SHOUROV | FOUNDER OF VAMPIRE SQUAD <<[/bold green]\n")
 
-def load_or_get_api_key():
-    """প্রথমবার ইউজারের কাছ থেকে Gemini API Key নিয়ে config.json এ সেভ রাখবে।"""
-    config_file = "config.json"
-    if os.path.exists(config_file):
-        with open(config_file, "r") as f:
-            try:
-                config = json.load(f)
-                if config.get("GEMINI_API_KEY"):
-                    return config["GEMINI_API_KEY"]
-            except:
-                pass
+def load_config():
+    """ইউজারের API Config লোড বা তৈরি করে"""
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, "r") as f:
+            return json.load(f)
+    return {"ZAI_KEY": "", "SERPER_KEY": ""}
+
+def granular_interview(project_type):
+    """ইউজারের কাছ থেকে ধাপে ধাপে (Tree Structure) নিখুঁত রিকোয়ারমেন্টস নেয়"""
+    console.print(f"\n[bold yellow]--- ArchitectX Project Wizard ({project_type.upper()}) ---[/bold yellow]")
     
-    # যদি আগে থেকে সেভ করা না থাকে, তবে ইউজারের কাছে চাইবে
-    console.print("[yellow][*] Gemini API Key not found. Initialization required.[/yellow]")
-    api_key = inquirer.secret(message="Enter your Google Gemini API Key:").execute()
-    
-    with open(config_file, "w") as f:
-        json.dump({"GEMINI_API_KEY": api_key}, f)
-    console.print("[bold green][✔] API Key saved securely![/bold green]\n")
-    return api_key
+    if project_type in ["webapp", "website"]:
+        core_func = inquirer.text(message="1. What is the core function? (e.g., Notepad, Portfolio, Dashboard):").execute()
+        sections = inquirer.text(message="2. What sections do you need? (e.g., Home, About, Login, Admin Panel):").execute()
+        theme = inquirer.select(
+            message="3. Select a Color Theme:",
+            choices=["Cyberpunk Dark (Green/Black)", "Modern Light (Blue/White)", "Dracula Dark (Purple/Grey)", "Custom"]
+        ).execute()
+        if theme == "Custom":
+            theme = inquirer.text(message="Describe your custom colors:").execute()
+            
+        db_setup = inquirer.confirm(message="4. Do you need Backend/Database placeholders (Firebase/Supabase)?").execute()
+        
+        prompt = f"Core: {core_func}. Sections: {sections}. Theme: {theme}. Database setup needed: {db_setup}."
+        
+    elif project_type == "tools":
+        core_func = inquirer.text(message="1. What does this tool do? (e.g., IP Tracker, File Encryptor):").execute()
+        interface = inquirer.select(message="2. Interface type:", choices=["CLI (Command Line)", "GUI (Tkinter/PyQt)"]).execute()
+        features = inquirer.text(message="3. List specific features (comma separated):").execute()
+        
+        prompt = f"Core: {core_func}. Interface: {interface}. Features: {features}."
+        
+    return prompt
 
 def main():
-    # স্ক্রিন ক্লিয়ার করা
     os.system('cls' if os.name == 'nt' else 'clear')
     show_banner()
 
-    # ধাপ ১: হার্ডওয়্যার আইডি এবং পেইড লাইসেন্স ভেরিফিকেশন
-    security.check_license()
+    # 1. Gatekeeper / Hardware Security
+    security.verify_license()
 
-    # ধাপ ২: API Key লোড করা
-    api_key = load_or_get_api_key()
+    # 2. API Routing & Health Check
+    user_config = load_config()
+    router = APIRouter()
+    active_apis = router.initialize_engines(user_config)
 
     while True:
-        # ধাপ ৩: ইন্টারেক্টিভ CLI মেনু
+        # 3. Core Matrix Menu
         choice = inquirer.select(
-            message="Select an ArchitectX Module to launch:",
+            message="[ ArchitectX Command Center ] Select operation:",
             choices=[
-                Choice(value="webapp", name="1. Create Web App (Advanced functionality & logic)"),
-                Choice(value="website", name="2. Create Website (Landing pages, Portfolios, etc.)"),
-                Choice(value="tools", name="3. Create Tools (Python/Bash CLI utilities)"),
-                Choice(value="clone", name="4. Clone from URL (Extract & Rebuild AI Replica)"),
-                Choice(value="exit", name="5. Exit System")
-            ],
-            default="webapp"
+                Choice(value="webapp", name="1. 🚀 Generate Web App (Dynamic logic, BaaS)"),
+                Choice(value="website", name="2. 🌐 Generate Website (Landing, Portfolio)"),
+                Choice(value="tools", name="3. ⚙️ Generate Tool (Python/Bash Scripts)"),
+                Choice(value="clone", name="4. 🧬 Deep Clone URL (Extract & Rebuild)"),
+                Choice(value="exit", name="5. ✖️ Terminate System")
+            ]
         ).execute()
 
         if choice == "exit":
-            console.print("\n[bold cyan][*] Shutting down ArchitectX Core. Stay stealthy, Vampire![/bold cyan]")
+            console.print("\n[bold red]Shutting down ArchitectX Neural Core... Stay Stealthy.[/bold red]")
             sys.exit(0)
 
-        # প্রজেক্টের নাম নেওয়া
-        project_name = inquirer.text(message="Enter a name for your project (e.g., My_Vampire_Tool):").execute()
-        project_name = project_name.strip().replace(" ", "_")
+        project_name = inquirer.text(message="Enter Project/Folder Name:").execute().strip().replace(" ", "_")
 
-        user_prompt = ""
-
-        # লজিক হ্যান্ডলিং
+        # 4. Granular Input & Scraper
         if choice == "clone":
-            target_url = inquirer.text(message="Enter the target website URL (e.g., https://example.com):").execute()
-            # Scraper মডিউল কল করা
-            blueprint = scraper.scrape_website(target_url)
-            if not blueprint:
+            target_url = inquirer.text(message="Enter target URL to clone:").execute()
+            ux_spinner = ArchitectXSpinner()
+            ux_spinner.start()
+            user_prompt = scraper.scrape_website(target_url, ux_spinner)
+            if not user_prompt:
                 continue
-            user_prompt = blueprint
-            project_type = "website" # ক্লোন করা সাইটগুলো ওয়েবসাইট হিসেবে সেভ হবে
+            project_type = "website"
         else:
             project_type = choice
-            console.print("\n[yellow][*] Provide detailed requirements for your project.[/yellow]")
-            console.print("[cyan](Example: I want a dark-themed hacking tool dashboard with a sidebar and a terminal-like window)[/cyan]")
-            user_prompt = inquirer.text(message="Requirements:").execute()
+            user_prompt = granular_interview(project_type)
 
-        # ধাপ ৪: AI Engine-কে কল করে কোড জেনারেট করা
-        code_dict = ai_engine.generate_code(project_type, user_prompt, api_key)
+        # 5. AI Generation
+        ux_spinner = ArchitectXSpinner()
+        ux_spinner.start()
+        code_dict = ai_engine.generate_code(project_type, user_prompt, active_apis, ux_spinner)
 
+        # 6. Compilation & Injection
         if code_dict:
-            # ধাপ ৫: Compiler-কে দিয়ে ফাইল সেভ করা এবং ArchitectX ক্রেডিট ইনজেক্ট করা
-            compiler.compile_and_save(project_name, project_type, code_dict)
-        
-        console.print("\n[magenta]" + "="*60 + "[/magenta]\n")
+            ux_spinner.start()
+            if compiler.compile_and_save(project_name, project_type, code_dict, ux_spinner):
+                
+                # 7. Auto-Hosting System
+                console.print("\n[bold cyan]--- Deployment Engine ---[/bold cyan]")
+                host_choice = inquirer.select(
+                    message="How would you like to run/host this project?",
+                    choices=[
+                        Choice(value="localhost", name="1. Live Preview (Localhost) - Recommended for testing"),
+                        Choice(value="surge", name="2. Global Hosting (Surge.sh) - Best for static Web/Apps"),
+                        Choice(value="none", name="3. Do nothing (Keep files locally)")
+                    ]
+                ).execute()
+                
+                if host_choice != "none":
+                    ux_spinner.start()
+                    compiler.host_project(project_name, host_choice, ux_spinner)
+                    
+        console.print("\n[magenta]" + "═"*70 + "[/magenta]\n")
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        console.print("\n\n[bold red][!] Process interrupted by user. Exiting ArchitectX...[/bold red]")
+        console.print("\n\n[bold red][!] Emergency override triggered. Exiting ArchitectX...[/bold red]")
         sys.exit(0)
