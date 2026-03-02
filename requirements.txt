@@ -1,0 +1,5 @@
+requests
+rich
+inquirerpy
+playwright
+beautifulsoup4
