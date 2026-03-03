@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# ======================================================================
+# [ ©ArchitectX 2.0 Enterprise - Developed by Muhammad Shourov ]
+# [ ALL RIGHTS RESERVED | VAMPIRE SQUAD                        ]
+# ======================================================================
+
 import os
 import platform
 import subprocess
@@ -13,14 +18,14 @@ from datetime import datetime
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
-from rich.align import Align  # <-- বক্স সেন্টারে আনার জন্য যুক্ত করা হয়েছে
+from rich.align import Align
 
 # --- কনফিগারেশন এবং সেটআপ ---
 console = Console()
 APPROVED_LIST_URL = "https://raw.githubusercontent.com/vampiresquad/Paid_Approval/refs/heads/main/approved.txt"
 DEVICE_FILE = os.path.expanduser("~/.vs_hwid_config") # হিডেন ব্যাকআপ ফাইল
 
-# ANSI কালার কোড
+# ANSI কালার কোড (আপনার তৈরি করা অরিজিনাল কালারগুলো)
 CYAN = "\033[96m"
 YELLOW = "\033[93m"
 GREEN = "\033[92m"
@@ -29,7 +34,7 @@ MAGENTA = "\033[95m"
 BOLD = "\033[1m"
 RESET = "\033[0m"
 
-# --- ইউটিলিটি ফাংশন ---
+# --- ইউটিলিটি ফাংশন (আপনার অরিজিনাল অ্যানিমেশন লজিক) ---
 
 def get_terminal_width():
     try: return shutil.get_terminal_size().columns
@@ -56,13 +61,11 @@ def slow_print(text, delay=0.02, center=False):
 def get_permanent_id():
     """ডিভাইসের হার্ডওয়্যার ভিত্তিক স্থায়ী আইডি জেনারেট করে"""
     
-    # ১. প্রথমে চেক করবে আগে থেকে সেভ করা কোনো আইডি আছে কি না
     if os.path.exists(DEVICE_FILE):
         with open(DEVICE_FILE, "r") as f:
             saved_id = f.read().strip()
             if saved_id: return saved_id
 
-    # ২. যদি না থাকে, হার্ডওয়্যার থেকে আইডি নিবে
     hw_string = ""
     system = platform.system()
     
@@ -76,10 +79,8 @@ def get_permanent_id():
     except:
         hw_string = str(uuid.getnode())
 
-    # SHA-256 দিয়ে আইডিটিকে এনক্রিপ্ট করে ছোট করা
     final_id = "VS-" + hashlib.sha256(hw_string.encode()).hexdigest()[:16].upper()
     
-    # ৩. আইডিটি ফাইলে সেভ করে রাখা
     try:
         with open(DEVICE_FILE, "w") as f:
             f.write(final_id)
@@ -103,7 +104,6 @@ def draw_denied_box(device_id):
     denied_text.append(f"Timestamp: {current_time}\n", style="dim white")
     denied_text.append("Security Protocol: VAMPIRE SQUAD CORE", style="bold magenta")
     
-    # বক্স তৈরি এবং Align.center দিয়ে মাঝখানে বসানো
     box_panel = Panel.fit(
         denied_text, 
         title="[bold red]✖ SYSTEM LOCKDOWN ✖[/bold red]", 
@@ -116,8 +116,13 @@ def draw_denied_box(device_id):
     input()
     sys.exit(1)
 
-def verify_license():
-    """পেইড লাইসেন্স চেকার এবং ভেরিফিকেশন ইঞ্জিন"""
+def verify_license(spinner_engine=None):
+    """পেইড লাইসেন্স চেকার এবং ভেরিফিকেশন ইঞ্জিন (ArchitectX 2.0 Integrated)"""
+    
+    # মেইন লঞ্চার থেকে আসলে স্পিনার থামিয়ে আমাদের কাস্টম অ্যানিমেশন শুরু করবে
+    if spinner_engine:
+        spinner_engine.stop("Initializing Vampire Squad Security Core...")
+        
     console.clear()
     slow_print(center_text(f"{BOLD}{CYAN}VAMPIRE SQUAD PREMIUM ACCESS SYSTEM{RESET}"), 0.04)
     slow_print(center_text(f"{CYAN}{'='*50}{RESET}"), 0.01)
@@ -146,17 +151,16 @@ def verify_license():
             f"[bold magenta]Admin: Muhammad Shourov (Vampire)[/bold magenta]"
         )
         
-        # বক্স তৈরি এবং Align.center দিয়ে মাঝখানে বসানো
         success_panel = Panel.fit(success_msg, title="[bold green]✔ ACCESS GRANTED[/bold green]", border_style="green", padding=(1, 2))
         console.print(Align.center(success_panel))
         
         time.sleep(1.5)
-        return True
+        return device_id  # ড্যাশবোর্ডের জন্য আইডি রিটার্ন করা হলো
     else:
         draw_denied_box(device_id)
-        return False
+        return None
 
-# --- মেইন প্রোগ্রাম এক্সিকিউশন ---
+# --- স্ট্যান্ডঅ্যালোন মেইন প্রোগ্রাম এক্সিকিউশন (ঐচ্ছিক টেস্টের জন্য) ---
 
 if __name__ == "__main__":
     try:
