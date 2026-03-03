@@ -4,65 +4,139 @@
 # [ ALL RIGHTS RESERVED | VAMPIRE SQUAD                        ]
 # ======================================================================
 
+import json
 import requests
-from bs4 import BeautifulSoup
+import time
 import re
+import http.client
 from rich.console import Console
 
 console = Console()
 
-def extract_colors(html_content):
-    """HTML থেকে আধুনিক রেগুলার এক্সপ্রেশন ব্যবহার করে কালার কোড বের করে"""
-    hex_colors = re.findall(r'#(?:[0-9a-fA-F]{3}){1,2}\b', html_content)
-    return list(set(hex_colors))[:6] # সেরা ৬টি ইউনিক কালার
+# [ এথিক্যাল ফিল্টার ]
+BLOCKED_KEYWORDS = ["ddos", "ransomware", "phishing", "malware", "virus", "exploit", "hack bank", "steal password", "trojan", "carding"]
 
-def scrape_target(url, spinner_engine):
-    """ওয়েবসাইটের UI/UX DNA রিড করার এন্টারপ্রাইজ ফাংশন"""
-    spinner_engine.update(f"Initiating Deep-Clone Protocol for: {url}", style="yellow")
-    
+def verify_ethics(prompt):
+    prompt_lower = prompt.lower()
+    for word in BLOCKED_KEYWORDS:
+        if re.search(rf"\b{word}\b", prompt_lower):
+            return False, word
+    return True, None
+
+def fetch_web_context(query, api_key, spinner):
+    """Serper API ব্যবহার করে ইন্টারনেট থেকে লেটেস্ট লাইব্রেরি বা ডিজাইন সার্চ করা"""
+    spinner.update(f"Scanning the web via Serper nodes for: {query[:20]}...", style="cyan")
     try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ArchitectX-DeepClone/2.0',
-            'Accept': 'text/html,application/xhtml+xml'
-        }
+        conn = http.client.HTTPSConnection("google.serper.dev", timeout=12)
+        payload = json.dumps({"q": query})
+        headers = {'X-API-KEY': api_key, 'Content-Type': 'application/json'}
+        conn.request("POST", "/search", payload, headers)
+        res = conn.getresponse()
+        data = res.read()
         
-        spinner_engine.update("Bypassing firewalls & fetching DOM...", style="cyan")
-        response = requests.get(url, headers=headers, timeout=20)
-        response.raise_for_status()
-        
-        html_content = response.text
-        soup = BeautifulSoup(html_content, 'html.parser')
-        
-        spinner_engine.update("Extracting UI patterns & Color Palettes...", style="magenta")
-        color_palette = extract_colors(html_content)
-        
-        # ক্লিন স্ট্রাকচার পাওয়ার জন্য স্ক্রিপ্ট বাদ দেওয়া
-        for script in soup(["script", "style", "noscript", "meta", "svg", "img"]):
-            script.extract()
-            
-        title = soup.title.string.strip() if soup.title else "ArchitectX Cloned Project"
-        nav_links = [a.get_text(strip=True) for a in soup.find_all('a') if len(a.get_text(strip=True)) > 2][:6]
-        buttons = [b.get_text(strip=True) for b in soup.find_all(['button', 'a']) if 'btn' in b.get('class', []) or 'button' in b.get('class', [])][:5]
-        headings = [h.get_text(strip=True) for h in soup.find_all(['h1', 'h2']) if h.get_text(strip=True)][:5]
-        
-        spinner_engine.stop("Target DNA successfully sequenced!")
-        
-        # AI-এর জন্য মাস্টার ব্লুপ্রিন্ট
-        blueprint = f"""
-        CLONE TARGET DATA:
-        - Original Title: {title}
-        - Color Palette to Use: {', '.join(color_palette) if color_palette else 'Modern Dark Tech Theme'}
-        - Navigation Items: {', '.join(nav_links)}
-        - Call-to-Actions (Buttons): {', '.join(buttons)}
-        - Main Structural Headings: {', '.join(headings)}
-        
-        CRITICAL INSTRUCTION: Rebuild this exact website structure. Use the discovered colors. Ensure the UI is 100% responsive, modern, and professional.
-        """
-        return blueprint
+        result_json = json.loads(data.decode("utf-8"))
+        extracted_info = ""
+        if "organic" in result_json:
+            for item in result_json["organic"][:3]:
+                extracted_info += f"- {item.get('title')}: {item.get('snippet')}\n"
+        return extracted_info
+    except:
+        return "Offline Mode: Web context unavailable."
 
-    except requests.exceptions.MissingSchema:
-        spinner_engine.stop("Invalid URL format (Must include http/https).", success=False)
+def generate_offline_template(project_type, user_prompt):
+    """API না থাকলে বা ফেইল করলে লোকাল টেমপ্লেট দেবে"""
+    if project_type in ["webapp", "website"]:
+        html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ArchitectX Auto-Generated {project_type.title()}</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-theme">
+    <div class="container">
+        <header>
+            <h1>{project_type.upper()} WORKSPACE</h1>
+            <p>Generated via ArchitectX Offline Core. Context: {user_prompt[:50]}...</p>
+        </header>
+        <main id="app-content">
+            <div class="card">
+                <h2>Module Active</h2>
+                <p>System is running on local fallback templates due to AI timeout.</p>
+                <button id="actionBtn">Initialize</button>
+            </div>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>"""
+        css = ":root { --bg: #0d1117; --text: #c9d1d9; --accent: #00ff00; }\nbody { background: var(--bg); color: var(--text); font-family: monospace; padding: 20px; }\n.card { border: 1px solid #30363d; padding: 20px; border-radius: 8px; }\nbutton { background: transparent; border: 1px solid var(--accent); color: var(--accent); padding: 10px; cursor: pointer; }"
+        js = "console.log('ArchitectX Offline UI Loaded.');"
+        return {"index.html": html, "style.css": css, "script.js": js}
+    else:
+        py_code = f"#!/usr/bin/env python3\n# Prompt: {user_prompt[:40]}\nprint('[*] ArchitectX Offline Tool Initialized.')\n"
+        return {"main.py": py_code}
+
+def generate_code(project_type, user_prompt, active_apis, spinner_engine):
+    """Z.ai এবং Serper দিয়ে ফাইনাল কোড জেনারেশন (The Master Router)"""
+    
+    is_ethical, bad_word = verify_ethics(user_prompt)
+    if not is_ethical:
+        spinner_engine.stop(f"SECURITY ALERT: Unethical request blocked ('{bad_word}').", success=False)
         return None
-    except Exception as e:
-        spinner_engine.stop(f"Clone engine failure: {e}", success=False)
-        return None
+
+    # ১. ওয়েব কনটেক্সট (যদি Serper থাকে)
+    web_context = ""
+    if active_apis.get("serper_key"):
+        web_context = fetch_web_context(f"Modern UI design structure for {project_type} {user_prompt[:20]}", active_apis["serper_key"], spinner_engine)
+
+    # ২. প্রম্পট ইঞ্জিনিয়ারিং
+    system_instruction = f"""
+    You are ArchitectX 2.0, an elite code generator created by Muhammad Shourov (Vampire Squad).
+    Project: {project_type}
+    Requirements: {user_prompt}
+    Web Context: {web_context}
+    
+    CRITICAL RULES:
+    1. Output MUST be ONLY a valid JSON object. No explanations, no markdown tags.
+    2. Keys are exact filenames ('index.html', 'style.css', 'main.py').
+    3. Values must be the FULL, COMPLETE code. Do not use placeholders.
+    4. For Web: Ensure highly professional UI/UX. For Python: Ensure error handling.
+    """
+
+    # ৩. Z.ai (Zhipu AI) রিকোয়েস্ট
+    if active_apis.get("zai_key"):
+        spinner_engine.update("Compiling prompt & Routing to Z.ai Neural Core...", style="magenta")
+        try:
+            url = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+            headers = {"Authorization": f"Bearer {active_apis['zai_key']}", "Content-Type": "application/json"}
+            data = {
+                "model": "glm-4",
+                "messages": [
+                    {"role": "system", "content": system_instruction},
+                    {"role": "user", "content": "Generate the JSON response now."}
+                ],
+                "temperature": 0.2
+            }
+            
+            response = requests.post(url, headers=headers, json=data, timeout=90)
+            response.raise_for_status()
+            
+            result = response.json()
+            generated_text = result['choices'][0]['message']['content']
+            
+            # JSON ফরম্যাট ফিক্স করা
+            generated_text = generated_text.replace("```json", "").replace("```", "").strip()
+            code_dict = json.loads(generated_text)
+            
+            spinner_engine.stop("AI Code matrix compiled perfectly!")
+            return code_dict
+            
+        except Exception as e:
+            spinner_engine.update(f"AI Generation Error: {e}. Switching to Offline Core...", style="red")
+            time.sleep(1)
+
+    # ৪. ফলব্যাক: অফলাইন জেনারেটর
+    spinner_engine.stop("Falling back to ArchitectX Offline Engine.", success=False)
+    return generate_offline_template(project_type, user_prompt)
