@@ -29,20 +29,22 @@ def main():
     clear_screen()
     draw_banner()
     
-    # স্পিনার ইনিশিয়ালাইজেশন
     master_spinner = VampireSpinner("Booting ArchitectX 2.0 Core Matrix...")
     master_spinner.start()
     time.sleep(1)
     
-    # হার্ডওয়্যার লাইসেন্স ভেরিফিকেশন
     hwid = verify_license(master_spinner)
     if not hwid:
-        sys.exit(1) # ভেরিফাই না হলে এখানেই বন্ধ হয়ে যাবে
+        sys.exit(1)
 
-    # এপিআই রাউটার ইনিশিয়ালাইজেশন
+    # API Router Initialization
     master_spinner.start()
     router = APIRouter()
     api_status = router.initialize_engines(master_spinner)
+    
+    # 🛠️ THE FIX: মেনু আসার আগে স্পিনারটিকে অফ করে দেওয়া হলো
+    master_spinner.stop("All Neural Engines Online!")
+    time.sleep(1)
     
     # ==========================================
     # 2. MAIN DASHBOARD LOOP
@@ -92,12 +94,10 @@ def main():
         # ==========================================
         master_spinner.start()
         
-        # AI Router দিয়ে কোড জেনারেট করা
         code_dict = generate_code(project_type, user_prompt, api_status, master_spinner)
         
         if code_dict:
             master_spinner.start()
-            # Compiler দিয়ে কোড সেভ, অটো-হিলিং এবং লাইসেন্স ইনজেক্ট করা
             compile_success = compile_and_save(project_name, project_type, code_dict, master_spinner)
             
             # ==========================================
@@ -121,7 +121,6 @@ def main():
         else:
             print("\n[!] Project generation failed due to Neural core error.")
 
-        # লুপ কন্টিনিউ করার আগে পজ
         input("\nPress Enter to return to the Main Command Center...")
 
 if __name__ == "__main__":
